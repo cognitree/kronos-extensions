@@ -1,7 +1,7 @@
-package com.cognitree.tasks.store;
+package com.cognitree.kronos.store;
 
-import com.cognitree.tasks.model.Task;
-import com.cognitree.tasks.model.TaskDependencyInfo;
+import com.cognitree.kronos.model.Task;
+import com.cognitree.kronos.model.TaskDependencyInfo;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;

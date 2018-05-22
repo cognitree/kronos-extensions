@@ -15,11 +15,11 @@
  * limitations under the License.
  */
 
-package com.cognitree.tasks.queue.consumer;
+package com.cognitree.kronos.queue.consumer;
 
-import com.cognitree.tasks.model.Task;
-import com.cognitree.tasks.queue.Subscriber;
-import com.cognitree.tasks.util.DateTimeUtil;
+import com.cognitree.kronos.model.TaskStatus;
+import com.cognitree.kronos.queue.Subscriber;
+import com.cognitree.kronos.util.DateTimeUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -30,7 +30,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.Executors;
@@ -39,36 +39,35 @@ import java.util.concurrent.ScheduledExecutorService;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
-public class KafkaTaskConsumer implements Consumer<Task> {
-    private static final Logger logger = LoggerFactory.getLogger(KafkaTaskConsumer.class);
+public class KafkaTaskStatusConsumer implements Consumer<TaskStatus> {
+    private static final Logger logger = LoggerFactory.getLogger(KafkaTaskStatusConsumer.class);
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-
+    private static final String TASK_STATUS_TOPIC = "taskStatus";
     private final ScheduledExecutorService scheduledExecutorService = Executors.newScheduledThreadPool(1);
+    private final long pollTimeout;
+    private final long pollInterval;
 
-    private KafkaConsumer<String, String> kafkaConsumer;
-    private long pollTimeout;
-    private long pollInterval;
+    private final KafkaConsumer<String, String> kafkaConsumer;
 
-    public KafkaTaskConsumer(ObjectNode config) {
+    public KafkaTaskStatusConsumer(ObjectNode config) {
         Properties consumerConfig = OBJECT_MAPPER.convertValue(config.get("consumerConfig"), Properties.class);
         kafkaConsumer = new KafkaConsumer<>(consumerConfig);
-        List<String> taskTopics = Arrays.asList(config.get("taskTopics").asText().split(",\\s*"));
-        kafkaConsumer.subscribe(taskTopics);
+        kafkaConsumer.subscribe(Collections.singleton(TASK_STATUS_TOPIC));
 
         pollTimeout = DateTimeUtil.resolveDuration(config.get("pollTimeout").asText());
         pollInterval = DateTimeUtil.resolveDuration(config.get("pollInterval").asText());
     }
 
     @Override
-    public void subscribe(Subscriber<Task> subscriber) {
+    public void subscribe(Subscriber<TaskStatus> subscriber) {
         final Runnable taskConsumer = () -> {
             ConsumerRecords<String, String> consumerRecords = kafkaConsumer.poll(pollTimeout);
             if (!consumerRecords.isEmpty()) {
-                List<Task> tasks = new ArrayList<>();
+                List<TaskStatus> tasks = new ArrayList<>();
                 for (ConsumerRecord<String, String> consumerRecord : consumerRecords) {
                     try {
-                        tasks.add(OBJECT_MAPPER.readValue(consumerRecord.value(), Task.class));
+                        tasks.add(OBJECT_MAPPER.readValue(consumerRecord.value(), TaskStatus.class));
                     } catch (IOException e) {
                         logger.error("Error parsing consumer record key {}, value {}",
                                 consumerRecord.key(), consumerRecord.value(), e);
@@ -77,7 +76,6 @@ public class KafkaTaskConsumer implements Consumer<Task> {
                 subscriber.consume(tasks);
             }
         };
-
         scheduledExecutorService.scheduleAtFixedRate(taskConsumer, pollInterval, pollInterval, MILLISECONDS);
     }
 
@@ -87,7 +85,7 @@ public class KafkaTaskConsumer implements Consumer<Task> {
         try {
             scheduledExecutorService.awaitTermination(1, MINUTES);
         } catch (Exception e) {
-            logger.error("Error stopping kafka task consumer", e);
+            logger.error("Error stopping kafka task status consumer", e);
         }
     }
 }

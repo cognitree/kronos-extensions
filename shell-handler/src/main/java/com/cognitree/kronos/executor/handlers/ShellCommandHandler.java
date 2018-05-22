@@ -15,10 +15,10 @@
  * limitations under the License.
  */
 
-package com.cognitree.tasks.executor.handlers;
+package com.cognitree.kronos.executor.handlers;
 
-import com.cognitree.tasks.executor.TaskStatusListener;
-import com.cognitree.tasks.model.Task;
+import com.cognitree.kronos.executor.TaskStatusListener;
+import com.cognitree.kronos.model.Task;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,8 +28,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Map;
 
-import static com.cognitree.tasks.model.Task.Status.FAILED;
-import static com.cognitree.tasks.model.Task.Status.SUCCESSFUL;
+import static com.cognitree.kronos.model.Task.Status.FAILED;
+import static com.cognitree.kronos.model.Task.Status.SUCCESSFUL;
 
 /**
  * Responsible for running shell commands with given arguments

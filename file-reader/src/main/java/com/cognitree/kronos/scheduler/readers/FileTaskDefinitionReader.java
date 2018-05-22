@@ -15,9 +15,9 @@
  * limitations under the License.
  */
 
-package com.cognitree.tasks.scheduler.readers;
+package com.cognitree.kronos.scheduler.readers;
 
-import com.cognitree.tasks.model.TaskDefinition;
+import com.cognitree.kronos.model.TaskDefinition;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;

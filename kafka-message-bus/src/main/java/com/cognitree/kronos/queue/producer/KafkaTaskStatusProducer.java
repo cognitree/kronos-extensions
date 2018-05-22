@@ -15,9 +15,9 @@
  * limitations under the License.
  */
 
-package com.cognitree.tasks.queue.producer;
+package com.cognitree.kronos.queue.producer;
 
-import com.cognitree.tasks.model.Task;
+import com.cognitree.kronos.model.TaskStatus;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.kafka.clients.producer.KafkaProducer;
@@ -27,22 +27,24 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Properties;
 
-public class KafkaTaskProducer implements Producer<Task> {
-    private static final Logger logger = LoggerFactory.getLogger(KafkaTaskProducer.class);
+public class KafkaTaskStatusProducer implements Producer<TaskStatus> {
+    private static final Logger logger = LoggerFactory.getLogger(KafkaTaskStatusProducer.class);
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private static final String TASK_STATUS_TOPIC = "taskStatus";
 
-    private KafkaProducer<String, String> kafkaProducer;
+    private final KafkaProducer<String, String> kafkaProducer;
 
-    public KafkaTaskProducer(ObjectNode config) {
+    public KafkaTaskStatusProducer(ObjectNode config) {
         Properties producerConfig = OBJECT_MAPPER.convertValue(config.get("producerConfig"), Properties.class);
         kafkaProducer = new KafkaProducer<>(producerConfig);
     }
 
-    public void add(Task task) throws Exception {
-        logger.info("Received request to add task {} to queue", task);
+    @Override
+    public void add(TaskStatus taskStatus) throws Exception {
+        logger.info("Received request to add task status {} to queue", taskStatus);
         ProducerRecord<String, String> record =
-                new ProducerRecord<>(task.getType(), task.getGroup(), OBJECT_MAPPER.writeValueAsString(task));
+                new ProducerRecord<>(TASK_STATUS_TOPIC, TASK_STATUS_TOPIC, OBJECT_MAPPER.writeValueAsString(taskStatus));
         kafkaProducer.send(record);
     }
 
