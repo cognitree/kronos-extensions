@@ -1,4 +1,4 @@
-package com.cognitree.kronos.store;
+package com.cognitree.kronos.scheduler.store;
 
 import com.cognitree.kronos.model.Task;
 import com.cognitree.kronos.model.Task.Status;
