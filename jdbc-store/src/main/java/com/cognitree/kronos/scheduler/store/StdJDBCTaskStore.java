@@ -32,17 +32,16 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
 /**
- * A SQLite implementation of {@link TaskStore}.
+ * A standard JDBC based implementation of {@link TaskStore}.
  */
-public class SQLiteTaskStore implements TaskStore {
-    private static final Logger logger = LoggerFactory.getLogger(SQLiteTaskStore.class);
+public class StdJDBCTaskStore implements TaskStore {
+    private static final Logger logger = LoggerFactory.getLogger(StdJDBCTaskStore.class);
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final String INSERT_TASK = "INSERT INTO tasks VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
@@ -53,25 +52,7 @@ public class SQLiteTaskStore implements TaskStore {
     private static final String LOAD_TASK_BY_STATUS = "SELECT * FROM tasks WHERE status IN ($statuses)";
     private static final String LOAD_TASK_BY_JOB_ID = "SELECT * FROM tasks WHERE job_id = ? AND namespace = ?";
     private static final String DELETE_TASK = "DELETE FROM tasks WHERE name = ? AND job_id = ? AND namespace = ?";
-    private static final String DDL_CREATE_TASK_SQL = "CREATE TABLE IF NOT EXISTS tasks (" +
-            "name string," +
-            "job_id string," +
-            "namespace string," +
-            "type string," +
-            "timeout_policy string," +
-            "max_execution_time string," +
-            "depends_on string," +
-            "properties string," +
-            "context string," +
-            "status string," +
-            "status_message string," +
-            "created_at integer," +
-            "submitted_at integer," +
-            "completed_at integer," +
-            "PRIMARY KEY(name, job_id, namespace)" +
-            ")";
-    private static final String CREATE_TASK_INDEX_JOB_ID_SQL = "CREATE INDEX IF NOT EXISTS tasks_job_id_idx " +
-            "on tasks (job_id, namespace)";
+
     private static final TypeReference<Map<String, Object>> PROPERTIES_TYPE_REF =
             new TypeReference<Map<String, Object>>() {
             };
@@ -82,10 +63,9 @@ public class SQLiteTaskStore implements TaskStore {
     private BasicDataSource dataSource;
 
     @Override
-    public void init(ObjectNode storeConfig) throws Exception {
-        logger.info("Initializing SQLite task store");
+    public void init(ObjectNode storeConfig) {
+        logger.info("Initializing standard JDBC task store");
         initDataSource(storeConfig);
-        initTaskStore();
     }
 
     private void initDataSource(ObjectNode storeConfig) {
@@ -108,15 +88,6 @@ public class SQLiteTaskStore implements TaskStore {
         }
     }
 
-    private void initTaskStore() throws SQLException {
-        try (Connection connection = dataSource.getConnection();
-             Statement statement = connection.createStatement()) {
-            statement.setQueryTimeout(30);
-            statement.executeUpdate(DDL_CREATE_TASK_SQL);
-            statement.executeUpdate(CREATE_TASK_INDEX_JOB_ID_SQL);
-        }
-    }
-
     @Override
     public void store(Task task) throws StoreException {
         logger.debug("Received request to store task {}", task);
@@ -134,9 +105,9 @@ public class SQLiteTaskStore implements TaskStore {
             preparedStatement.setString(++paramIndex, MAPPER.writeValueAsString(task.getContext()));
             preparedStatement.setString(++paramIndex, task.getStatus().name());
             preparedStatement.setString(++paramIndex, task.getStatusMessage());
-            SQLiteUtil.setLong(preparedStatement, ++paramIndex, task.getCreatedAt());
-            SQLiteUtil.setLong(preparedStatement, ++paramIndex, task.getSubmittedAt());
-            SQLiteUtil.setLong(preparedStatement, ++paramIndex, task.getCompletedAt());
+            JDBCUtil.setLong(preparedStatement, ++paramIndex, task.getCreatedAt());
+            JDBCUtil.setLong(preparedStatement, ++paramIndex, task.getSubmittedAt());
+            JDBCUtil.setLong(preparedStatement, ++paramIndex, task.getCompletedAt());
             preparedStatement.execute();
         } catch (Exception e) {
             logger.error("Error storing task {} into database", task, e);
@@ -184,28 +155,6 @@ public class SQLiteTaskStore implements TaskStore {
     }
 
     @Override
-    public void update(Task task) throws StoreException {
-        TaskId taskId = task.getIdentity();
-        logger.debug("Received request to update task to {}", task);
-        try (Connection connection = dataSource.getConnection();
-             PreparedStatement preparedStatement = connection.prepareStatement(UPDATE_TASK)) {
-            int paramIndex = 0;
-            preparedStatement.setString(++paramIndex, task.getStatus().name());
-            preparedStatement.setString(++paramIndex, task.getStatusMessage());
-            SQLiteUtil.setLong(preparedStatement, ++paramIndex, task.getSubmittedAt());
-            SQLiteUtil.setLong(preparedStatement, ++paramIndex, task.getCompletedAt());
-            preparedStatement.setString(++paramIndex, MAPPER.writeValueAsString(task.getContext()));
-            preparedStatement.setString(++paramIndex, taskId.getName());
-            preparedStatement.setString(++paramIndex, taskId.getJob());
-            preparedStatement.setString(++paramIndex, taskId.getNamespace());
-            preparedStatement.execute();
-        } catch (Exception e) {
-            logger.error("Error updating task with to {}", task, e);
-            throw new StoreException(e.getMessage(), e.getCause());
-        }
-    }
-
-    @Override
     public List<Task> loadByJobId(String jobId, String namespace) throws StoreException {
         logger.debug("Received request to get all tasks with job id {}, namespace {}", jobId, namespace);
         try (Connection connection = dataSource.getConnection();
@@ -227,7 +176,6 @@ public class SQLiteTaskStore implements TaskStore {
 
     @Override
     public List<Task> loadByStatus(List<Status> statuses, String namespace) throws StoreException {
-        // TODO handle namespace
         logger.debug("Received request to get all tasks with status in {}, namespace {}", statuses, namespace);
         String placeHolders = String.join(",", Collections.nCopies(statuses.size(), "?"));
         final String sqlQuery = LOAD_TASK_BY_STATUS.replace("$statuses", placeHolders);
@@ -249,17 +197,39 @@ public class SQLiteTaskStore implements TaskStore {
     }
 
     @Override
-    public void delete(TaskId identity) throws StoreException {
-        logger.debug("Received request to delete task with id {}", identity);
+    public void update(Task task) throws StoreException {
+        TaskId taskId = task.getIdentity();
+        logger.debug("Received request to update task to {}", task);
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement preparedStatement = connection.prepareStatement(UPDATE_TASK)) {
+            int paramIndex = 0;
+            preparedStatement.setString(++paramIndex, task.getStatus().name());
+            preparedStatement.setString(++paramIndex, task.getStatusMessage());
+            JDBCUtil.setLong(preparedStatement, ++paramIndex, task.getSubmittedAt());
+            JDBCUtil.setLong(preparedStatement, ++paramIndex, task.getCompletedAt());
+            preparedStatement.setString(++paramIndex, MAPPER.writeValueAsString(task.getContext()));
+            preparedStatement.setString(++paramIndex, taskId.getName());
+            preparedStatement.setString(++paramIndex, taskId.getJob());
+            preparedStatement.setString(++paramIndex, taskId.getNamespace());
+            preparedStatement.execute();
+        } catch (Exception e) {
+            logger.error("Error updating task with to {}", task, e);
+            throw new StoreException(e.getMessage(), e.getCause());
+        }
+    }
+
+    @Override
+    public void delete(TaskId taskId) throws StoreException {
+        logger.debug("Received request to delete task with id {}", taskId);
         try (Connection connection = dataSource.getConnection();
              PreparedStatement preparedStatement = connection.prepareStatement(DELETE_TASK)) {
             int paramIndex = 0;
-            preparedStatement.setString(++paramIndex, identity.getName());
-            preparedStatement.setString(++paramIndex, identity.getJob());
-            preparedStatement.setString(++paramIndex, identity.getNamespace());
+            preparedStatement.setString(++paramIndex, taskId.getName());
+            preparedStatement.setString(++paramIndex, taskId.getJob());
+            preparedStatement.setString(++paramIndex, taskId.getNamespace());
             preparedStatement.executeUpdate();
         } catch (Exception e) {
-            logger.error("Error deleting task with id {} from database", identity, e);
+            logger.error("Error deleting task with id {} from database", taskId, e);
             throw new StoreException(e.getMessage(), e.getCause());
         }
     }
@@ -278,9 +248,9 @@ public class SQLiteTaskStore implements TaskStore {
         task.setContext(MAPPER.readValue(resultSet.getString(++paramIndex), PROPERTIES_TYPE_REF));
         task.setStatus(Status.valueOf(resultSet.getString(++paramIndex)));
         task.setStatusMessage(resultSet.getString(++paramIndex));
-        task.setCreatedAt(SQLiteUtil.getLong(resultSet, ++paramIndex));
-        task.setSubmittedAt(SQLiteUtil.getLong(resultSet, ++paramIndex));
-        task.setCompletedAt(SQLiteUtil.getLong(resultSet, ++paramIndex));
+        task.setCreatedAt(JDBCUtil.getLong(resultSet, ++paramIndex));
+        task.setSubmittedAt(JDBCUtil.getLong(resultSet, ++paramIndex));
+        task.setCompletedAt(JDBCUtil.getLong(resultSet, ++paramIndex));
         return task;
     }
 

@@ -17,8 +17,8 @@
 
 package com.cognitree.kronos.scheduler.store;
 
-import com.cognitree.kronos.model.Namespace;
-import com.cognitree.kronos.model.NamespaceId;
+import com.cognitree.kronos.scheduler.model.Namespace;
+import com.cognitree.kronos.scheduler.model.NamespaceId;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.commons.dbcp2.BasicDataSource;
 import org.slf4j.Logger;
@@ -33,29 +33,23 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * A SQLite implementation of {@link NamespaceStore}.
+ * A standard JDBC based implementation of {@link NamespaceStore}.
  */
-public class SQLiteNamespaceStore implements NamespaceStore {
-    private static final Logger logger = LoggerFactory.getLogger(SQLiteNamespaceStore.class);
+public class StdJDBCNamespaceStore implements NamespaceStore {
+    private static final Logger logger = LoggerFactory.getLogger(StdJDBCNamespaceStore.class);
 
-    private static final String INSERT_NAMESPACE = "INSERT INTO namespace VALUES (?,?)";
-    private static final String UPDATE_NAMESPACE = "UPDATE namespace SET description = ? WHERE name = ?";
-    private static final String LOAD_ALL_NAMESPACES = "SELECT * FROM namespace";
-    private static final String LOAD_NAMESPACE = "SELECT * FROM namespace WHERE name = ?";
-    private static final String DELETE_NAMESPACE = "DELETE FROM namespace WHERE name = ?";
-    private static final String DDL_CREATE_NAMESPACE_SQL = "CREATE TABLE IF NOT EXISTS namespace (" +
-            "name string," +
-            "description string," +
-            "PRIMARY KEY(name)" +
-            ")";
+    private static final String INSERT_NAMESPACE = "INSERT INTO namespaces VALUES (?,?)";
+    private static final String UPDATE_NAMESPACE = "UPDATE namespaces SET description = ? WHERE name = ?";
+    private static final String LOAD_ALL_NAMESPACES = "SELECT * FROM namespaces";
+    private static final String LOAD_NAMESPACE = "SELECT * FROM namespaces WHERE name = ?";
+    private static final String DELETE_NAMESPACE = "DELETE FROM namespaces WHERE name = ?";
 
     private BasicDataSource dataSource;
 
     @Override
-    public void init(ObjectNode storeConfig) throws Exception {
-        logger.info("Initializing SQLite namespace store");
+    public void init(ObjectNode storeConfig) {
+        logger.info("Initializing standard JDBC namespace store");
         initDataSource(storeConfig);
-        initNamespaceStore();
     }
 
     private void initDataSource(ObjectNode storeConfig) {
@@ -75,14 +69,6 @@ public class SQLiteNamespaceStore implements NamespaceStore {
         }
         if (storeConfig.hasNonNull("maxOpenPreparedStatements")) {
             dataSource.setMaxOpenPreparedStatements(storeConfig.get("maxOpenPreparedStatements").asInt());
-        }
-    }
-
-    private void initNamespaceStore() throws SQLException {
-        try (Connection connection = dataSource.getConnection();
-             Statement statement = connection.createStatement()) {
-            statement.setQueryTimeout(30);
-            statement.executeUpdate(DDL_CREATE_NAMESPACE_SQL);
         }
     }
 

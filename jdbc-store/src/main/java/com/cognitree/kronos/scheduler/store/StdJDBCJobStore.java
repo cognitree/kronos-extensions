@@ -17,8 +17,8 @@
 
 package com.cognitree.kronos.scheduler.store;
 
-import com.cognitree.kronos.model.Job;
-import com.cognitree.kronos.model.JobId;
+import com.cognitree.kronos.scheduler.model.Job;
+import com.cognitree.kronos.scheduler.model.JobId;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.commons.dbcp2.BasicDataSource;
 import org.slf4j.Logger;
@@ -28,15 +28,14 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * A SQLite implementation of {@link JobStore}.
+ * A standard JDBC based implementation of {@link JobStore}.
  */
-public class SQLiteJobStore implements JobStore {
-    private static final Logger logger = LoggerFactory.getLogger(SQLiteJobStore.class);
+public class StdJDBCJobStore implements JobStore {
+    private static final Logger logger = LoggerFactory.getLogger(StdJDBCJobStore.class);
 
     private static final String INSERT_JOB = "INSERT INTO jobs VALUES (?,?,?,?,?,?,?)";
     private static final String LOAD_JOB_BY_NAMESPACE = "SELECT * FROM jobs WHERE namespace = ?";
@@ -50,30 +49,14 @@ public class SQLiteJobStore implements JobStore {
     private static final String UPDATE_JOB = "UPDATE jobs SET status = ?, created_at = ?, completed_at = ? " +
             " WHERE id = ? AND namespace = ?";
     private static final String DELETE_JOB = "DELETE FROM jobs WHERE id = ? AND namespace = ?";
-    private static final String DDL_CREATE_JOB_SQL = "CREATE TABLE IF NOT EXISTS jobs (" +
-            "id string," +
-            "workflow_name string," +
-            "trigger_name string," +
-            "namespace string," +
-            "status string," +
-            "created_at integer," +
-            "completed_at integer," +
-            "PRIMARY KEY(id, workflow_name, namespace)" +
-            ")";
-    private static final String CREATE_JOB_WORKFLOW_INDEX_SQL = "CREATE INDEX IF NOT EXISTS jobs_workflow_name_namespace_idx " +
-            "on jobs (workflow_name, namespace)";
-    private static final String CREATE_JOB_WORKFLOW_TRIGGER_INDEX_SQL = "CREATE INDEX IF NOT EXISTS" +
-            " jobs_workflow_name_trigger_namespace_idx on jobs (workflow_name, trigger_name, namespace)";
 
     private BasicDataSource dataSource;
 
     @Override
-    public void init(ObjectNode storeConfig) throws Exception {
-        logger.info("Initializing SQLite job store");
+    public void init(ObjectNode storeConfig) {
+        logger.info("Initializing standard JDBC job store");
         initDataSource(storeConfig);
-        initJobStore();
     }
-
 
     private void initDataSource(ObjectNode storeConfig) {
         dataSource = new BasicDataSource();
@@ -95,17 +78,6 @@ public class SQLiteJobStore implements JobStore {
         }
     }
 
-    private void initJobStore() throws SQLException {
-        try (Connection connection = dataSource.getConnection();
-             Statement statement = connection.createStatement()) {
-            statement.setQueryTimeout(30);
-            statement.executeUpdate(DDL_CREATE_JOB_SQL);
-            statement.executeUpdate(CREATE_JOB_WORKFLOW_INDEX_SQL);
-            statement.executeUpdate(CREATE_JOB_WORKFLOW_TRIGGER_INDEX_SQL);
-        }
-    }
-
-
     @Override
     public void store(Job job) throws StoreException {
         logger.debug("Received request to store job {}", job);
@@ -117,8 +89,8 @@ public class SQLiteJobStore implements JobStore {
             preparedStatement.setString(++paramIndex, job.getTrigger());
             preparedStatement.setString(++paramIndex, job.getNamespace());
             preparedStatement.setString(++paramIndex, job.getStatus().name());
-            SQLiteUtil.setLong(preparedStatement, ++paramIndex, job.getCreatedAt());
-            SQLiteUtil.setLong(preparedStatement, ++paramIndex, job.getCompletedAt());
+            JDBCUtil.setLong(preparedStatement, ++paramIndex, job.getCreatedAt());
+            JDBCUtil.setLong(preparedStatement, ++paramIndex, job.getCompletedAt());
             preparedStatement.execute();
         } catch (Exception e) {
             logger.error("Error storing job {} into database", job, e);
@@ -245,8 +217,8 @@ public class SQLiteJobStore implements JobStore {
              PreparedStatement preparedStatement = connection.prepareStatement(UPDATE_JOB)) {
             int paramIndex = 0;
             preparedStatement.setString(++paramIndex, job.getStatus().name());
-            SQLiteUtil.setLong(preparedStatement, ++paramIndex, job.getCreatedAt());
-            SQLiteUtil.setLong(preparedStatement, ++paramIndex, job.getCompletedAt());
+            JDBCUtil.setLong(preparedStatement, ++paramIndex, job.getCreatedAt());
+            JDBCUtil.setLong(preparedStatement, ++paramIndex, job.getCompletedAt());
             preparedStatement.setString(++paramIndex, jobId.getId());
             preparedStatement.setString(++paramIndex, jobId.getNamespace());
             preparedStatement.execute();
@@ -279,8 +251,8 @@ public class SQLiteJobStore implements JobStore {
         job.setTrigger(resultSet.getString(++paramIndex));
         job.setNamespace(resultSet.getString(++paramIndex));
         job.setStatus(Job.Status.valueOf(resultSet.getString(++paramIndex)));
-        job.setCreatedAt(SQLiteUtil.getLong(resultSet, ++paramIndex));
-        job.setCompletedAt(SQLiteUtil.getLong(resultSet, ++paramIndex));
+        job.setCreatedAt(JDBCUtil.getLong(resultSet, ++paramIndex));
+        job.setCompletedAt(JDBCUtil.getLong(resultSet, ++paramIndex));
         return job;
     }
 

@@ -17,9 +17,9 @@
 
 package com.cognitree.kronos.scheduler.store;
 
-import com.cognitree.kronos.model.Workflow;
-import com.cognitree.kronos.model.Workflow.WorkflowTask;
-import com.cognitree.kronos.model.WorkflowId;
+import com.cognitree.kronos.scheduler.model.Workflow;
+import com.cognitree.kronos.scheduler.model.Workflow.WorkflowTask;
+import com.cognitree.kronos.scheduler.model.WorkflowId;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -31,15 +31,14 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * A SQLite implementation of {@link WorkflowStore}.
+ * A standard JDBC based implementation of {@link WorkflowStore}.
  */
-public class SQLiteWorkflowStore implements WorkflowStore {
-    private static final Logger logger = LoggerFactory.getLogger(SQLiteWorkflowStore.class);
+public class StdJDBCWorkflowStore implements WorkflowStore {
+    private static final Logger logger = LoggerFactory.getLogger(StdJDBCWorkflowStore.class);
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final String INSERT_WORKFLOW = "INSERT INTO workflows VALUES (?,?,?,?)";
@@ -50,13 +49,7 @@ public class SQLiteWorkflowStore implements WorkflowStore {
     private static final String DELETE_WORKFLOW = "DELETE FROM workflows where name = ? " +
             "AND namespace = ?";
     private static final String LOAD_WORKFLOW = "SELECT * FROM workflows where name = ? AND namespace = ?";
-    private static final String DDL_CREATE_WORKFLOW_SQL = "CREATE TABLE IF NOT EXISTS workflows (" +
-            "name string," +
-            "namespace string," +
-            "description string," +
-            "tasks string," +
-            "PRIMARY KEY(name, namespace)" +
-            ")";
+
     private static final TypeReference<List<WorkflowTask>> WORKFLOW_TASK_LIST_TYPE_REF =
             new TypeReference<List<WorkflowTask>>() {
             };
@@ -64,10 +57,9 @@ public class SQLiteWorkflowStore implements WorkflowStore {
     private BasicDataSource dataSource;
 
     @Override
-    public void init(ObjectNode storeConfig) throws Exception {
-        logger.info("Initializing SQLite workflow store");
+    public void init(ObjectNode storeConfig) {
+        logger.info("Initializing standard JDBC workflow store");
         initDataSource(storeConfig);
-        initWorkflowStore();
     }
 
     private void initDataSource(ObjectNode storeConfig) {
@@ -87,14 +79,6 @@ public class SQLiteWorkflowStore implements WorkflowStore {
         }
         if (storeConfig.hasNonNull("maxOpenPreparedStatements")) {
             dataSource.setMaxOpenPreparedStatements(storeConfig.get("maxOpenPreparedStatements").asInt());
-        }
-    }
-
-    private void initWorkflowStore() throws SQLException {
-        try (Connection connection = dataSource.getConnection();
-             Statement statement = connection.createStatement()) {
-            statement.setQueryTimeout(30);
-            statement.executeUpdate(DDL_CREATE_WORKFLOW_SQL);
         }
     }
 

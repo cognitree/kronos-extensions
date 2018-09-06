@@ -17,8 +17,10 @@
 
 package com.cognitree.kronos.scheduler.store;
 
-import com.cognitree.kronos.model.WorkflowTrigger;
-import com.cognitree.kronos.model.WorkflowTriggerId;
+import com.cognitree.kronos.scheduler.model.Schedule;
+import com.cognitree.kronos.scheduler.model.WorkflowTrigger;
+import com.cognitree.kronos.scheduler.model.WorkflowTriggerId;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.commons.dbcp2.BasicDataSource;
 import org.slf4j.Logger;
@@ -28,15 +30,15 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * A SQLite implementation of {@link WorkflowTriggerStore}.
+ * A standard JDBC based implementation of {@link WorkflowTriggerStore}.
  */
-public class SQLiteWorkflowTriggerStore implements WorkflowTriggerStore {
-    private static final Logger logger = LoggerFactory.getLogger(SQLiteWorkflowTriggerStore.class);
+public class StdJDBCWorkflowTriggerStore implements WorkflowTriggerStore {
+    private static final Logger logger = LoggerFactory.getLogger(StdJDBCWorkflowTriggerStore.class);
+    private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private static final String INSERT_WORKFLOW_TRIGGER = "INSERT INTO workflow_triggers VALUES (?,?,?,?,?,?,?)";
     private static final String LOAD_ALL_WORKFLOW_TRIGGER_BY_NAMESPACE = "SELECT * FROM workflow_triggers " +
@@ -49,24 +51,13 @@ public class SQLiteWorkflowTriggerStore implements WorkflowTriggerStore {
             "AND workflow_name = ? AND namespace = ?";
     private static final String LOAD_WORKFLOW_TRIGGER = "SELECT * FROM workflow_triggers where name = ? " +
             "AND workflow_name = ? AND namespace = ?";
-    private static final String DDL_CREATE_WORKFLOW_TRIGGER_SQL = "CREATE TABLE IF NOT EXISTS workflow_triggers (" +
-            "name string," +
-            "workflow_name string," +
-            "namespace string," +
-            "start_at integer," +
-            "schedule string," +
-            "end_at integer," +
-            "enabled boolean," +
-            "PRIMARY KEY(name, workflow_name, namespace)" +
-            ")";
 
     private BasicDataSource dataSource;
 
     @Override
-    public void init(ObjectNode storeConfig) throws Exception {
-        logger.info("Initializing SQLite workflow trigger store");
+    public void init(ObjectNode storeConfig) {
+        logger.info("Initializing standard JDBC workflow trigger store");
         initDataSource(storeConfig);
-        initWorkflowTriggerStore();
     }
 
     private void initDataSource(ObjectNode storeConfig) {
@@ -89,14 +80,6 @@ public class SQLiteWorkflowTriggerStore implements WorkflowTriggerStore {
         }
     }
 
-    private void initWorkflowTriggerStore() throws SQLException {
-        try (Connection connection = dataSource.getConnection();
-             Statement statement = connection.createStatement()) {
-            statement.setQueryTimeout(30);
-            statement.executeUpdate(DDL_CREATE_WORKFLOW_TRIGGER_SQL);
-        }
-    }
-
     @Override
     public void store(WorkflowTrigger workflowTrigger) throws StoreException {
         logger.debug("Received request to store workflow trigger {}", workflowTrigger);
@@ -106,9 +89,9 @@ public class SQLiteWorkflowTriggerStore implements WorkflowTriggerStore {
             preparedStatement.setString(++paramIndex, workflowTrigger.getName());
             preparedStatement.setString(++paramIndex, workflowTrigger.getWorkflow());
             preparedStatement.setString(++paramIndex, workflowTrigger.getNamespace());
-            SQLiteUtil.setLong(preparedStatement, ++paramIndex, workflowTrigger.getStartAt());
-            preparedStatement.setString(++paramIndex, workflowTrigger.getSchedule());
-            SQLiteUtil.setLong(preparedStatement, ++paramIndex, workflowTrigger.getEndAt());
+            JDBCUtil.setLong(preparedStatement, ++paramIndex, workflowTrigger.getStartAt());
+            preparedStatement.setString(++paramIndex, MAPPER.writeValueAsString(workflowTrigger.getSchedule()));
+            JDBCUtil.setLong(preparedStatement, ++paramIndex, workflowTrigger.getEndAt());
             preparedStatement.setBoolean(++paramIndex, workflowTrigger.isEnabled());
             preparedStatement.execute();
         } catch (Exception e) {
@@ -184,9 +167,9 @@ public class SQLiteWorkflowTriggerStore implements WorkflowTriggerStore {
         try (Connection connection = dataSource.getConnection();
              PreparedStatement preparedStatement = connection.prepareStatement(UPDATE_WORKFLOW_TRIGGER)) {
             int paramIndex = 0;
-            SQLiteUtil.setLong(preparedStatement, ++paramIndex, workflowTrigger.getStartAt());
-            preparedStatement.setString(++paramIndex, workflowTrigger.getSchedule());
-            SQLiteUtil.setLong(preparedStatement, ++paramIndex, workflowTrigger.getEndAt());
+            JDBCUtil.setLong(preparedStatement, ++paramIndex, workflowTrigger.getStartAt());
+            preparedStatement.setString(++paramIndex, MAPPER.writeValueAsString(workflowTrigger.getSchedule()));
+            JDBCUtil.setLong(preparedStatement, ++paramIndex, workflowTrigger.getEndAt());
             preparedStatement.setBoolean(++paramIndex, workflowTrigger.isEnabled());
             preparedStatement.setString(++paramIndex, workflowTrigger.getName());
             preparedStatement.setString(++paramIndex, workflowTrigger.getWorkflow());
@@ -220,9 +203,9 @@ public class SQLiteWorkflowTriggerStore implements WorkflowTriggerStore {
         workflowTrigger.setName(resultSet.getString(++paramIndex));
         workflowTrigger.setWorkflow(resultSet.getString(++paramIndex));
         workflowTrigger.setNamespace(resultSet.getString(++paramIndex));
-        workflowTrigger.setStartAt(SQLiteUtil.getLong(resultSet, ++paramIndex));
-        workflowTrigger.setSchedule(resultSet.getString(++paramIndex));
-        workflowTrigger.setEndAt(SQLiteUtil.getLong(resultSet, ++paramIndex));
+        workflowTrigger.setStartAt(JDBCUtil.getLong(resultSet, ++paramIndex));
+        workflowTrigger.setSchedule(MAPPER.readValue(resultSet.getString(++paramIndex), Schedule.class));
+        workflowTrigger.setEndAt(JDBCUtil.getLong(resultSet, ++paramIndex));
         workflowTrigger.setEnabled(resultSet.getBoolean(++paramIndex));
         return workflowTrigger;
     }

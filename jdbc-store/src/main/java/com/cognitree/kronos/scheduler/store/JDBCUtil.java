@@ -22,7 +22,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
 
-public class SQLiteUtil {
+public class JDBCUtil {
 
     public static void setLong(PreparedStatement preparedStatement, int paramIndex, Long value) throws SQLException {
         if (value != null) {
