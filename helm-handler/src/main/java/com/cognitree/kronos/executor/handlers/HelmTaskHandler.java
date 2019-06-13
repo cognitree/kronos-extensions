@@ -131,7 +131,7 @@ public class HelmTaskHandler implements TaskHandler {
         taskResult.put(PROP_RELEASE_NAME, releaseName);
 
         final Map<String, Object> taskProperties = task.getProperties();
-        long waitTimeout = (long) taskProperties.getOrDefault(PROP_MAX_WAIT_TIMEOUT, DEFAULT_WAIT_TIMEOUT);
+        long waitTimeout = Long.parseLong(taskProperties.getOrDefault(PROP_MAX_WAIT_TIMEOUT, DEFAULT_WAIT_TIMEOUT).toString());
 
         try (DefaultKubernetesClient kubernetesClient = new DefaultKubernetesClient();
              Tiller tiller = new Tiller(kubernetesClient);
