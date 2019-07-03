@@ -46,21 +46,23 @@ public class KafkaMessageHandler implements TaskHandler {
 
     private String defaultTopic;
     private KafkaProducer<String, String> kafkaProducer;
+    private Task task;
 
     @Override
-    public void init(ObjectNode config) {
+    public void init(Task task, ObjectNode config) {
         logger.info("Initializing producer for kafka with config {}", config);
         if (config == null || !config.hasNonNull(KAFKA_PRODUCER_CONFIG_KEY)) {
             throw new IllegalArgumentException("missing mandatory configuration: [kafkaProducerConfig]");
         }
+        this.task = task;
         Properties kafkaProducerConfig = OBJECT_MAPPER.convertValue(config.get(KAFKA_PRODUCER_CONFIG_KEY), Properties.class);
         kafkaProducer = new KafkaProducer<>(kafkaProducerConfig);
         defaultTopic = config.get(TOPIC_KEY).asText();
     }
 
     @Override
-    public TaskResult handle(Task task) {
-        logger.info("Received request to handle task {}", task);
+    public TaskResult execute() {
+        logger.info("Received request to execute task {}", task);
         final Map<String, Object> taskProperties = task.getProperties();
         final String topic = (String) taskProperties.getOrDefault(TOPIC_KEY, defaultTopic);
         try {

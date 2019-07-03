@@ -19,11 +19,14 @@ package com.cognitree.kronos.queue.producer;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import org.apache.kafka.clients.admin.AdminClient;
+import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Collections;
 import java.util.Properties;
 
 /**
@@ -33,25 +36,55 @@ public class KafkaProducerImpl implements Producer {
     private static final Logger logger = LoggerFactory.getLogger(KafkaProducerImpl.class);
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private static final String KAFKA_PRODUCER_CONFIG_KEY = "kafkaProducerConfig";
+    private static final int NUM_TOPIC_PARTITIONS = 3;
+    private static final short TOPIC_REPLICATION_FACTOR = (short) 1;
 
     private KafkaProducer<String, String> kafkaProducer;
+    private String topic;
+    private ObjectNode config;
 
-    public void init(ObjectNode config) {
-        logger.info("Initializing producer for kafka with config {}", config);
-        Properties kafkaProducerConfig = OBJECT_MAPPER.convertValue(config.get("kafkaProducerConfig"), Properties.class);
+    public void init(String topic, ObjectNode config) {
+        logger.info("Initializing Kafka producer for topic {} with config {}", topic, config);
+        this.topic = topic;
+        this.config = config;
+        createTopic();
+        initProducer();
+    }
+
+    private void createTopic() {
+        try {
+            final Properties properties =
+                    OBJECT_MAPPER.convertValue(config.get(KAFKA_PRODUCER_CONFIG_KEY), Properties.class);
+            final AdminClient adminClient = AdminClient.create(properties);
+            final NewTopic kafkaTopic = new NewTopic(topic, NUM_TOPIC_PARTITIONS, TOPIC_REPLICATION_FACTOR);
+            adminClient.createTopics(Collections.singleton(kafkaTopic)).all().get();
+        } catch (Exception e) {
+            logger.error("Error creating topic {}, error: {}", topic, e.getMessage());
+        }
+    }
+
+    private void initProducer() {
+        final Properties kafkaProducerConfig =
+                OBJECT_MAPPER.convertValue(config.get(KAFKA_PRODUCER_CONFIG_KEY), Properties.class);
         kafkaProducer = new KafkaProducer<>(kafkaProducerConfig);
     }
 
     @Override
-    public void send(String topic, String record) {
-        sendInOrder(topic, record, null);
+    public void broadcast(String record) {
+        sendInOrder(record, null);
     }
 
     @Override
-    public void sendInOrder(String topic, String record, String orderingKey) {
+    public void send(String record) {
+        sendInOrder(record, null);
+    }
+
+    @Override
+    public void sendInOrder(String record, String orderingKey) {
         logger.trace("Received request to send message {} to topic {} with orderingKey {}",
                 record, topic, orderingKey);
-        ProducerRecord<String, String> producerRecord = orderingKey == null ?
+        final ProducerRecord<String, String> producerRecord = orderingKey == null ?
                 new ProducerRecord<>(topic, record) : new ProducerRecord<>(topic, orderingKey, record);
         kafkaProducer.send(producerRecord, (metadata, exception) -> {
             if (exception != null) {
