@@ -7,7 +7,7 @@
     <parent>
         <groupId>com.cognitree.kronos.extensions</groupId>
         <artifactId>kronos-extensions</artifactId>
-        <version>3.0.0-RC1</version>
+        <version>3.0.0-RC2</version>
     </parent>
 
     <artifactId>distribution</artifactId>
