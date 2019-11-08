@@ -26,10 +26,10 @@
     <name>kronos-extensions</name>
     <artifactId>kronos-extensions</artifactId>
     <packaging>pom</packaging>
-    <version>3.0.0-RC1</version>
+    <version>3.0.0</version>
 
     <properties>
-        <kronos.version>3.0.0-RC2</kronos.version>
+        <kronos.version>3.0.0</kronos.version>
         <maven.compiler.source>1.8</maven.compiler.source>
         <maven.compiler.target>1.8</maven.compiler.target>
         <encoding>UTF-8</encoding>
