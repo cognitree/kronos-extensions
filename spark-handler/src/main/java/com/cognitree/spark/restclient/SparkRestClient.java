@@ -34,6 +34,8 @@ import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
+
 import static org.apache.http.entity.ContentType.APPLICATION_JSON;
 import static org.apache.http.protocol.HTTP.CONTENT_TYPE;
 
@@ -98,7 +100,7 @@ public class SparkRestClient {
         this.secure = secure;
     }
 
-    public JobSubmitResponse submitJob(JobSubmitRequest jobSubmitRequest) throws Exception {
+    public JobSubmitResponse submitJob(JobSubmitRequest jobSubmitRequest) throws IOException {
         logger.debug("Received request to submit Spark job with request {}", jobSubmitRequest);
         // override spark version if specified at rest client
         jobSubmitRequest.setClientSparkVersion(sparkVersion);
@@ -140,13 +142,13 @@ public class SparkRestClient {
         jobSubmitRequest.getSparkProperties().setJars(jars);
     }
 
-    public JobStatusResponse getJobStatus(String submissionId) throws Exception {
+    public JobStatusResponse getJobStatus(String submissionId) throws IOException {
         logger.debug("Received request to query Spark job status with submission id {}", submissionId);
         final String url = getMasterRestUrl() + JOB_STATUS_URL + "/" + submissionId;
         return execute(new HttpGet(url), JobStatusResponse.class);
     }
 
-    public KillJobResponse killJob(String submissionId) throws Exception {
+    public KillJobResponse killJob(String submissionId) throws IOException {
         logger.debug("Received request to kill Spark job with submission id {}", submissionId);
         final String url = getMasterRestUrl() + KILL_JOB_URL + "/" + submissionId;
         return execute(new HttpPost(url), KillJobResponse.class);
@@ -156,7 +158,7 @@ public class SparkRestClient {
         return isSecure() ? "https" : "http" + "://" + masterUrl;
     }
 
-    private <T> T execute(HttpRequestBase httpRequest, Class<T> responseClass) throws Exception {
+    private <T> T execute(HttpRequestBase httpRequest, Class<T> responseClass) throws IOException {
         try {
             final String stringResponse = client.execute(httpRequest, new BasicResponseHandler());
             return MAPPER.readValue(stringResponse, responseClass);

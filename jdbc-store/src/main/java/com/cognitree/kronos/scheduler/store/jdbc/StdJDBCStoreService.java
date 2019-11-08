@@ -17,7 +17,6 @@
 
 package com.cognitree.kronos.scheduler.store.jdbc;
 
-import com.cognitree.kronos.ServiceProvider;
 import com.cognitree.kronos.scheduler.store.JobStore;
 import com.cognitree.kronos.scheduler.store.NamespaceStore;
 import com.cognitree.kronos.scheduler.store.StoreService;
@@ -40,7 +39,6 @@ import org.slf4j.LoggerFactory;
 
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.sql.Connection;
 import java.sql.SQLException;
 
 public class StdJDBCStoreService extends StoreService {

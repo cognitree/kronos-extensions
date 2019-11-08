@@ -20,6 +20,7 @@ package com.cognitree.kronos.executor.handlers;
 import com.cognitree.kronos.executor.model.TaskResult;
 import com.cognitree.kronos.model.Task;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.kafka.clients.producer.KafkaProducer;
@@ -44,23 +45,23 @@ public class KafkaMessageHandler implements TaskHandler {
     // message to push to kafka topic
     private static final String MESSAGE_KEY = "message";
 
+    private JsonNode producerConfig;
     private String defaultTopic;
-    private KafkaProducer<String, String> kafkaProducer;
+    private Task task;
 
     @Override
-    public void init(ObjectNode config) {
-        logger.info("Initializing producer for kafka with config {}", config);
+    public void init(Task task, ObjectNode config) {
         if (config == null || !config.hasNonNull(KAFKA_PRODUCER_CONFIG_KEY)) {
             throw new IllegalArgumentException("missing mandatory configuration: [kafkaProducerConfig]");
         }
-        Properties kafkaProducerConfig = OBJECT_MAPPER.convertValue(config.get(KAFKA_PRODUCER_CONFIG_KEY), Properties.class);
-        kafkaProducer = new KafkaProducer<>(kafkaProducerConfig);
+        this.task = task;
+        producerConfig = config.get(KAFKA_PRODUCER_CONFIG_KEY);
         defaultTopic = config.get(TOPIC_KEY).asText();
     }
 
     @Override
-    public TaskResult handle(Task task) {
-        logger.info("Received request to handle task {}", task);
+    public TaskResult execute() {
+        logger.info("Received request to execute task {}", task);
         final Map<String, Object> taskProperties = task.getProperties();
         final String topic = (String) taskProperties.getOrDefault(TOPIC_KEY, defaultTopic);
         try {
@@ -74,14 +75,17 @@ public class KafkaMessageHandler implements TaskHandler {
     }
 
     private void send(String topic, String record) {
-        logger.trace("Received request to send message {} to topic {}.", record, topic);
-        ProducerRecord<String, String> producerRecord =
-                new ProducerRecord<>(topic, record);
-        kafkaProducer.send(producerRecord, (metadata, exception) -> {
-            if (exception != null) {
-                logger.error("Error sending record {} over kafka to topic {}.",
-                        record, topic, exception);
-            }
-        });
+        logger.debug("Received request to send message {} to topic {}.", record, topic);
+        logger.debug("Initializing producer for kafka with config {}", producerConfig);
+        final Properties kafkaProducerConfig = OBJECT_MAPPER.convertValue(this.producerConfig, Properties.class);
+        try (final KafkaProducer<String, String> kafkaProducer = new KafkaProducer<>(kafkaProducerConfig)) {
+            final ProducerRecord<String, String> producerRecord = new ProducerRecord<>(topic, record);
+            kafkaProducer.send(producerRecord, (metadata, exception) -> {
+                if (exception != null) {
+                    logger.error("Error sending record {} over kafka to topic {}.",
+                            record, topic, exception);
+                }
+            });
+        }
     }
 }
