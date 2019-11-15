@@ -12,7 +12,7 @@
     <artifactId>kafka-message-handler</artifactId>
 
     <properties>
-        <kafka.client.version>2.2.0</kafka.client.version>
+        <kafka.client.version>2.3.1</kafka.client.version>
     </properties>
 
     <dependencies>
