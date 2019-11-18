@@ -22,7 +22,7 @@
     <parent>
         <artifactId>kronos-extensions</artifactId>
         <groupId>com.cognitree.kronos.extensions</groupId>
-        <version>3.0.0-RC2</version>
+        <version>3.0.1</version>
     </parent>
 
     <modelVersion>4.0.0</modelVersion>
@@ -30,7 +30,7 @@
     <artifactId>kafka-queue</artifactId>
 
     <properties>
-        <kafka.client.version>2.2.0</kafka.client.version>
+        <kafka.client.version>2.3.1</kafka.client.version>
     </properties>
 
     <dependencies>
