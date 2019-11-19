@@ -111,7 +111,12 @@ public class HelmTaskHandler implements TaskHandler {
         if (isRetry(task)) {
             releaseName = (String) task.getContext().get(PROP_RELEASE_NAME);
         } else if (taskProperties.containsKey(PROP_RELEASE_NAME)) {
-            releaseName = getProperty(taskProperties, PROP_RELEASE_NAME);
+            if (taskProperties.containsKey(PROP_RELEASE_PREFIX)) {
+                releaseName = getProperty(taskProperties, PROP_RELEASE_PREFIX)
+                        + "-" + getProperty(taskProperties, PROP_RELEASE_NAME);
+            } else {
+                releaseName = getProperty(taskProperties, PROP_RELEASE_NAME);
+            }
         } else {
             releaseName = taskProperties.getOrDefault(PROP_RELEASE_PREFIX, DEFAULT_RELEASE_PREFIX)
                     + "-" + System.currentTimeMillis();
