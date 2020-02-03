@@ -26,7 +26,7 @@
     <name>kronos-extensions</name>
     <artifactId>kronos-extensions</artifactId>
     <packaging>pom</packaging>
-    <version>3.1.0-SNAPSHOT</version>
+    <version>3.1.0</version>
 
     <properties>
         <kronos.version>3.0.0</kronos.version>
