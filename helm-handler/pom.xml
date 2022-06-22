@@ -30,7 +30,7 @@
 
     <properties>
         <microbean-helm.version>2.8.2.1.1.1</microbean-helm.version>
-        <k8s-client-java.version>4.2.0</k8s-client-java.version>
+        <k8s-client-java.version>4.7.2</k8s-client-java.version>
         <netty-tcnative-boringssl-static.version>2.0.7.Final</netty-tcnative-boringssl-static.version>
         <bcprov-jdk16.version>1.46</bcprov-jdk16.version>
     </properties>
